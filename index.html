@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FB Share Tool</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * { box-sizing: border-box; font-family: Arial, sans-serif; }
+    body {
+      background: #0f172a;
+      color: #e5e7eb;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .card {
+      background: #020617;
+      width: 100%;
+      max-width: 480px;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.5);
+    }
+    h2 { text-align: center; margin-bottom: 15px; }
+    label { font-size: 13px; opacity: .8; }
+    textarea, input {
+      width: 100%;
+      margin-top: 5px;
+      margin-bottom: 12px;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      outline: none;
+      background: #020617;
+      color: #fff;
+      border: 1px solid #1e293b;
+    }
+    textarea { resize: vertical; min-height: 80px; }
+    button {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      background: #2563eb;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:disabled { opacity: .6; cursor: not-allowed; }
+    .status { margin-top: 15px; font-size: 14px; }
+    .log {
+      margin-top: 15px;
+      background: #020617;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 10px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h2>FB Share Tool</h2>
+
+  <label>Cookie</label>
+  <textarea id="cookie" placeholder="Paste cookie here"></textarea>
+
+  <label>Post URL</label>
+  <input id="url" placeholder="https://facebook.com/..." />
+
+  <label>Amount</label>
+  <input id="amount" type="number" value="10" min="1">
+
+  <button onclick="submitShare()">Start Sharing</button>
+
+  <div class="status" id="status"></div>
+
+  <div class="log" id="log"></div>
+</div>
+
+<script>
+  const statusEl = document.getElementById('status');
+  const logEl = document.getElementById('log');
+
+  async function submitShare() {
+    statusEl.textContent = '⏳ Sending request...';
+    logEl.innerHTML = '';
+
+    const payload = {
+      cookie: document.getElementById('cookie').value.trim(),
+      url: document.getElementById('url').value.trim(),
+      amount: Number(document.getElementById('amount').value)
+    };
+
+    if (!payload.cookie || !payload.url || !payload.amount) {
+      statusEl.textContent = '❌ Missing required fields';
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Request failed');
+
+      statusEl.textContent = '✅ Sharing started';
+      fetchProgress();
+
+    } catch (err) {
+      statusEl.textContent = '❌ ' + err.message;
+    }
+  }
+
+  async function fetchProgress() {
+    try {
+      const res = await fetch('/total');
+      const data = await res.json();
+
+      logEl.innerHTML = '';
+      if (data.length === 0) {
+        logEl.innerHTML = 'No active sharing sessions.';
+      } else {
+        data.forEach(item => {
+          logEl.innerHTML += `
+            <div>
+              🔗 ${item.url}<br>
+              📊 ${item.count} / ${item.target}
+              <hr>
+            </div>
+          `;
+        });
+      }
+    } catch (err) {
+      logEl.innerHTML = '⚠ Unable to fetch progress';
+    }
+
+    setTimeout(fetchProgress, 2000); // poll every 2s
+  }
+
+  fetchProgress();
+</script>
+
+</body>
+</html>
